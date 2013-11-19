@@ -12,7 +12,7 @@ macros.
 
 Basic usage:
 
-```
+```lisp
 ;; adds 2 to the stack pointer, in effect taking the top item off
 (defcode   'drop `(addq (:imm 2), ,*sp*))
 ;; add the item top of the stack with the next item below, popping the top item off
