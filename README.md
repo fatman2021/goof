@@ -16,7 +16,7 @@ Basic usage:
 ;; adds 2 to the stack pointer, in effect taking the top item off
 (defcode   'drop `(addq (:imm 2), ,*sp*))
 ;; add the item top of the stack with the next item below, popping the top item off
-(defcode   '+   `(add (:post-inc ,*sp*) (:indirect ,*sp*)))
+(defcode   '+   `(add.w (:post-inc ,*sp*) (:indirect ,*sp*)))
 
 
 (compile-word 'drop)
@@ -35,9 +35,10 @@ Basic usage:
 "
 
 ;; test compiling an anonymous colon word with the two above code words
-(compile-word '(drop + exit))
-"   ; inlining DROP 
-    ADDQ #2, A6
+(compile-word '(drop swap + exit))
+"    ; inlining DROP 
+    ADDQ #2, A6 
+    JSR code1050 ; call to SWAP
     ; inlining + 
     ADD.W (A6)+, (A6) 
     RTS

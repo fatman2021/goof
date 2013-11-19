@@ -235,7 +235,7 @@
 (defun short-word-p (word)
   (let ((code-word (gethash word *code-words*))
         (colon-word (gethash word *colon-words*)))
-    (or (and code-word (>= 4 (length code-word)))
+    (or (and code-word (>= 3 (length code-word)))
         (and colon-word (>= 4 (length colon-word))))))
 
 (defun compile-exit ()
@@ -252,7 +252,7 @@
                 ((gethash word *colon-words*) (gethash word *colon-word-syms*))
                 ((gethash word *code-words*) (gethash word *code-word-syms*))
                 (t (error "Cannot find word named ~a." word)))))
-    (format nil "    JSR ~a~%" (format nil "~a" name))))
+    (format nil "    JSR ~a ; call to ~a~%" (format nil "~a" name) word)))
 
 
 ;; only code words for now
