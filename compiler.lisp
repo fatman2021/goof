@@ -48,7 +48,7 @@
 ;; a compiler macro (in this context) is a lambda that takes the rest of
 ;; the words in the currently compiling word,
 ;; performs some operation on them, and returns the rest of the words
-;; that need to be compiler (and optionally some other bit of code to
+;; that need to be compiled (and optionally some other bit of code to
 ;; be assembled in the compiled word)
 (defmacro defcompile (name &body body)
   `(setf
