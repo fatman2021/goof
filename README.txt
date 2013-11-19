@@ -12,7 +12,7 @@ macros.
 
 Basic usage:
 
-
+```
 ;; adds 2 to the stack pointer, in effect taking the top item off
 (defcode   'drop `(addq (:imm 2), ,*sp*))
 ;; add the item top of the stack with the next item below, popping the top item off
@@ -42,6 +42,7 @@ Basic usage:
     ADD.W (A6)+, (A6) 
     RTS
 "
+```
 
 It inlines both dup and + because they are relatively short words (and
 the CALL/RETURN overhead far outweighs the operations they perform)
