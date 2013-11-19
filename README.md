@@ -35,9 +35,9 @@ Basic usage:
 "
 
 ;; test compiling an anonymous colon word with the two above code words
-(compile-word '(dup + exit))
+(compile-word '(drop + exit))
 "   ; inlining DUP 
-    MOVE.W (A6), -(A6) 
+    ADDQ #2, A6
     ; inlining + 
     ADD.W (A6)+, (A6) 
     RTS
