@@ -5,6 +5,7 @@
 
 (defparameter *start-address* #x000000 "Start address of code to be assembled.")
 (defparameter *stack-address* #xE00000 "Location in memory of the forth parameter stack.")
+(defvar *compiling-word*)
 
 
 ;; Compiler API
@@ -105,33 +106,42 @@
 
 ;; Compiles an entire forth asm image
 (defun compile-image (file start-words)
-  
-  (with-open-file (out file :if-exists :supersede :if-does-not-exist :create :direction :output)
-    (format out "    ~a~%" (compile-start-address))
 
-    
-    (format out "~a~%" (compile-initialization))
+  (let ((words-to-compile (make-hash-table :test 'eq)))
+    (with-open-file (out file :if-exists :supersede :if-does-not-exist :create :direction :output)
+      (format out "    ~a~%" (compile-start-address))
 
-    (mapcar
-     (lambda (start-word)
-       (format out "    ; initial call to ~a    ~%JSR ~a ~%"
-               start-word
-               (format nil "~a" (get-word-label start-word))))
-     start-words)
-    
-    (format out "~%")
-    
-    (let ((end-loop-name (gensym "loop")))
-      (format out "~a: ~%    ; program ended, infinite loop ~%    JMP ~a~%~%" end-loop-name end-loop-name))
+      
+      (format out "~a~%" (compile-initialization))
 
-    (maphash (lambda (k v) (declare (ignore v))
-               (format out "~a" (compile-word k)))
-             *code-words*)
-    (maphash (lambda (k v) (declare (ignore v))
-               (format out "~a" (compile-word k)))
-             *colon-words*)
+      (mapcar
+       (lambda (start-word)
+         (typecase start-word
+           (number (format out "~a~%" (compile-push start-word)))
+           (symbol
+            (shake-threads start-word words-to-compile)
+            (format out "    ; initial call to ~a    ~%    JSR ~a ~%"
+                    start-word
+                    (format nil "~a" (get-word-label start-word))))))
+       start-words)
 
-    (format out "~%~%    ~a" (compile-end-address))))
+      
+      (format out "~%")
+      
+      (let ((end-loop-name (gensym "loop")))
+        (format out "~a: ~%    ; program ended, infinite loop ~%    JMP ~a~%~%" end-loop-name end-loop-name))
+
+      ;; (maphash (lambda (k v) (declare (ignore v))
+      ;;             (format out "~a" (compile-word k)))
+      ;;          *code-words*)
+      
+      (maphash (lambda (word v) (declare (ignore v))
+                  (format t "compiling word ~a~%" word)
+                  (format out "~a" (compile-word word)))
+               ;*colon-words*
+               words-to-compile)
+
+      (format out "~%~%    ~a" (compile-end-address)))))
 
 
 (defun get-word-code (name)
@@ -147,16 +157,18 @@
 
 
 (defmethod compile-word ((word symbol))
-  (cond
-    ((gethash word *colon-words*) (compile-colon-word word))
-    ((gethash word *code-words*) (compile-code-word word))
-    (t (error "Cannot find word named ~a." word))))
+  (let ((*compiling-word* word))
+    (cond
+      ((gethash word *colon-words*) (compile-colon-word word))
+      ((gethash word *code-words*) (compile-code-word word))
+      (t (error "Cannot find word named ~a." word)))))
 
 (defmethod compile-word ((word list))
-  (etypecase (car word)
-    (symbol (compile-colon-word word))
-    (number (compile-colon-word word))
-    (list (compile-code-word word))))
+  (let ((*compiling-word* (if *compiling-word* *compiling-word* :anonymous)))
+    (etypecase (car word)
+      (symbol (compile-colon-word word))
+      (number (compile-colon-word word))
+      (list (compile-code-word word)))))
 
 (defun compile-label (label)
   (format nil "~a: ~%" label))
@@ -241,11 +253,6 @@
 (defun compile-exit ()
   (format nil "    RTS~%"))
 
-(defun short-word-p (word)
-  (and (gethash word *code-words*)
-       nil))
-
-
 
 (defun compile-word-call (word)
   (let ((name (cond
@@ -288,13 +295,17 @@
 
 (defun translate-instruction (instruction)
   (destructuring-bind (opcode &optional op-a op-b) instruction
+
     (with-output-to-string (out)
-      (format out "    ~a" opcode)
-      (when op-a
-        (format out " ~a" (translate-operand op-a)))
-      (when op-b
-        (format out ", ~a" (translate-operand op-b)))
-      (format out " ~%"))))
+      (if (eq :label opcode)
+          (format out "~a:~%" op-a)
+          (progn
+            (format out "    ~a" opcode)
+            (when op-a
+              (format out " ~a" (translate-operand op-a)))
+            (when op-b
+              (format out ", ~a" (translate-operand op-b)))
+            (format out " ~%"))))))
 
 (defun translate-operand (operand)
   (typecase operand
@@ -327,5 +338,21 @@
 
 
 
+;; returns a list of words that need to be compiled
+(defun shake-threads (word &optional (shaken-words (make-hash-table :test 'eq)))
+  (let ((words-to-shake (list word)))
+    (setf (gethash word shaken-words) t)
+    (loop while words-to-shake do
+         (let ((next-set-of-words-to-shake (list)))
+           (loop for word in words-to-shake do
+                (let ((new-words-to-shake (gethash word *colon-words*)))
+                  (loop for new-word in new-words-to-shake do
+                       (unless (or (gethash new-word shaken-words)
+                                   (and (not (gethash new-word *colon-words*))
+                                        (not (gethash new-word *code-words*))))
+                         (setf (gethash new-word shaken-words) t)
+                         (push new-word next-set-of-words-to-shake)))))
+           (setf words-to-shake next-set-of-words-to-shake)))
+    shaken-words))
 
 

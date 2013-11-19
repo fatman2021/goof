@@ -15,6 +15,9 @@
 
 (defcode 2dup  `((move.l ,*sp* (:pre-dec ,*sp*))))
 
+;; ( a b -- a b a )
+(defcode over  `((move.w (:displacement 2 ,*sp*) (:pre-dec ,*sp*))))
+
 (defcode r>    `((move.w (:post-inc ,*rsp*) (:pre-dec ,*sp*))))
 
 (defcode r>>   `((move.l (:post-inc ,*rsp*) (:pre-dec ,*sp*))))
@@ -70,7 +73,41 @@
 
 (defcode execute `((jmp (:indirect ,*rsp*))))
 
-;; (defcode =0)
+(defcode ?dup  (let ((name (gensym "label")))
+                 `((tst (:indirect ,*sp*))
+                   (beq ,name)
+                   (move.w (:indirect ,*sp*) (:pre-dec ,*sp*))
+                   (:label ,name))))
+
+;; should this be destructive?
+(defcode =0  `((tst.w (:indirect ,*sp*))))
+
+
+
+;; ;; general compare word, preferred to use this
+;; ;; (or one of the compare-with-zero words),
+;; ;; then use the contextually correct branching word
+(defcode = `((cmp (:indirect ,*sp*) (:indirect ,*sp*))))
+(defcode cmp `((cmp (:indirect ,*sp*) (:indirect ,*sp*))))
+
+;; first operand is the divisor
+;; remainder is second on stack
+(defcode /mod `((move.w (:post-inc ,*sp*) d7)
+                (move.w (:post-inc ,*sp*) d6)
+                (divs d7 d6)
+                (swap d6)
+                (move.l d6 (:pre-dec ,*sp*))
+                (moveq.l (:imm 0) d6)
+                (moveq.l (:imm 0) d7)))
+
+(defcode mod  `((move.w (:post-inc ,*sp*) d7)
+                (move.w (:post-inc ,*sp*) d6)
+                (divs d7 d6)
+                (swap d6)
+                (move.w d6 (:pre-dec ,*sp*))
+                (moveq.l (:imm 0) d6)
+                (moveq.l (:imm 0) d7)))
+
 ;; (defcode =)
 ;; (defcode <)
 ;; (defcode <0)
@@ -80,40 +117,38 @@
 ;; (defcode >=0)
 ;; (defcode <=0)
 
-;; ;; general compare word, preferred to use this
-;; ;; (or one of the compare-with-zero words),
-;; ;; then use the contextually correct branching word
-;; (defcode cmp)
+(defcolon gcd (?dup =0 =if swap over recurse then))
+
+(defun compile-if (test-instruction words)
+  (let* ((then (position 'then words))
+         (else (position 'else words))
+         (if-words
+          (cond
+            (else (subseq words 0 else))
+            (then (subseq words 0 then))))
+         (else-words (if else
+                         (subseq words else)))
+         (rest-words (subseq words (1+ then))))
+    ;(format t "if-words: ~a~%" if-words)
+    ;(format t "else-words: ~a~%" else-words)
+    ;(format t "then-words: ~a~%" rest-words)
+    (let ((label (gensym "label")))
+      (values rest-words
+              (list
+               ;; test already performed
+               ;; if not successful, jump past if-words
+               (translate-instruction `(,test-instruction ,label))
+               (compile-word if-words)
+               (compile-label label))))))
+
+(defcompile =if 
+  (compile-if 'bne words))
 
 
+(defcompile /=if
+  (compile-if 'beq words))
 
-;; (defcode =       `((cmp (:displacement 2 ,*sp*))
-;;                     (:indirect ,*sp*)))
 
-
-(defconst un 1)
-
-(defcolon push1 (un dup +))
-
-(defcolon square (dup +))
-
-(defcolon push2 (push1 push1 +))
-
-(defcolon yield (r>> swap >>r))
-
-(defcolon yield2 (yield yield))
-
-(defcompile if 
-  (let ((then (position 'then words))
-        (else (position 'else words)))
-    (append (list 'setup)
-            (subseq words 0 then)
-            (list 'then-words)
-            (if else
-                (subseq words then else)
-                (subseq words then))
-            (when else (list 'else-words))
-            (when else (subseq words else)))))
 
 
 ;; create a word that when called will allocate a new word on the
@@ -140,3 +175,13 @@
       ;; return words after code fragment
       (values (subseq words (1+ end-code))
               (mapcar #'translate-instruction (subseq words 0 end-code)))))
+
+(defcompile recurse
+  (let* ((code-sym (gethash *compiling-word* *code-word-syms*))
+         (colon-sym (gethash *compiling-word* *colon-word-syms*))
+         (sym (or code-sym colon-sym)))
+    (if (eq :anonymous *compiling-word*)
+        (values words
+                (list (format nil "; recursive call to anonymous word not compiled")))
+        (values words
+                (list (format nil "    JMP ~a ; recursive call ~%" sym))))))
