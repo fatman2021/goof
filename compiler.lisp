@@ -25,31 +25,50 @@
 
 
 
-
+;; a 'naked' code word is one without a return-from-subroute opcode at
+;; the end
 (defmacro def-naked-code (name code)
   `(progn
      (export ',name)
      (setf (gethash ',name *code-words*) ,code
            (gethash ',name *code-word-syms*) (gensym "code"))))
 
+;; same as above, but adds an 'rts' to the end
 (defmacro defcode (name code)
   `(def-naked-code ,name (append ,code '((rts)))))
 
+;; 
 (defmacro defcolon (name words)
   `(progn
      (export ',name)
      (setf (gethash ',name *colon-words*) '(,@words exit)
            (gethash ',name *colon-word-syms*) (gensym "colon"))))
 
+;; used to define compiler macros
+;; a compiler macro (in this context) is a lambda that takes the rest of
+;; the words in the currently compiling word,
+;; performs some operation on them, and returns the rest of the words
+;; that need to be compiler (and optionally some other bit of code to
+;; be assembled in the compiled word)
+(defmacro defcompile (name &body body)
+  `(setf
+    (gethash ',name *compiler-macros*)
+    (lambda (words)
+        ,@body)))
 
 
+;; defining constants
+;; (these only exist at compile-time, unlike interactive forths)
 
+;; defconst defines a compiler macro that appends an operation to push
+;; the constant value onto the words to be compiled
 (defmacro defconst (name value)
   `(progn
      (export ',name)
      (defcompile ,name
          (cons ,value words))))
 
+;; not implemented yet
 (defmacro defvariable (name value)
   `(progn
      (error "This functionality is not yet implemented.")
@@ -58,13 +77,9 @@
      (defcompile ,name
          )))
 
-(defmacro defcompile (name &rest body)
-  `(setf
-    (gethash ',name *compiler-macros*)
-    (lambda (words)
-        ,@body)))
 
 
+;; tables for word and symbols
 
 (defvar *code-words* (make-hash-table :test 'equalp))
 (defvar *code-word-syms* (make-hash-table :test 'equalp))
@@ -73,9 +88,11 @@
 (defvar *compiler-macros* (make-hash-table :test 'equalp))
 (defvar *constants* (make-hash-table :test 'equalp))
 
+;; return stack pointer and stack pointer
 (defparameter *rsp* 'a7)
 (defparameter *sp* 'a6)
 
+;; initialization and such
 (defun compile-start-address ()
   (format nil "ORG ~a~%" *start-address*))
 
@@ -85,6 +102,8 @@
 (defun compile-initialization ()
   (format nil "    ; initialization ~%~%    MOVE.L #$~x, a6" *stack-address*))
 
+
+;; Compiles an entire forth asm image
 (defun compile-image (file start-words)
   
   (with-open-file (out file :if-exists :supersede :if-does-not-exist :create :direction :output)
@@ -113,6 +132,7 @@
              *colon-words*)
 
     (format out "~%~%    ~a" (compile-end-address))))
+
 
 (defun get-word-code (name)
   (if (gethash name *code-words*)
