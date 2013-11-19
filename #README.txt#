@@ -1,4 +1,5 @@
-GOOF is a subroutine-threaded forth compiler for the motorola 68000,
+GOOF (game-oriented object forth)
+ is a subroutine-threaded forth compiler for the motorola 68000,
 designed for game development on the Sega Megadrive game console.
 
 I'm still working on adding in basic forth primitives, but it
