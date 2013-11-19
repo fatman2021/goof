@@ -175,15 +175,16 @@
 
 
 (defmethod compile-code-word ((word symbol))
-  (let ((word (gethash word *code-words*)))
-    (if word
+  (let ((code (gethash word *code-words*))
+        (sym  (gethash word *code-word-syms*)))
+    (if code
         (apply
          #'concatenate
          'string
-         (compile-label (gethash word *code-word-syms*)) 
+         (compile-label sym) 
          (append
           (list (format nil "    ; definition for ~a ~%" word))
-          (list (translate-asm word)))) (error "Cannot find code word wordd ~a." word))))
+          (list (translate-asm code)))) (error "Cannot find code word word ~a." word))))
 
 
 (defun compile-push (number)
@@ -222,15 +223,7 @@
                (append
                 (when word-name
                   (list (format nil "    ; definition of ~a~%" word-name)))
-                (recur words)
-                ;; (list (let ((word (car (last words))))
-                ;;         (case word
-                ;;           (exit (compile-exit))
-                ;;           (otherwise
-                ;;            (if (short-word-p word)
-                ;;                (compile-inline-body word)
-                ;;                (compile-word-call word))))))
-                ))
+                (recur words)))
         (error "Cannot find colon word word ~a." word-name))))
 
 (defmethod compile-colon-word ((words list))
@@ -242,8 +235,7 @@
 (defun short-word-p (word)
   (let ((code-word (gethash word *code-words*))
         (colon-word (gethash word *colon-words*)))
-    (or (and code-word (>= 3 (length code-word)))
-        ;; length of 4 because we'll remove the exit at the end
+    (or (and code-word (>= 4 (length code-word)))
         (and colon-word (>= 4 (length colon-word))))))
 
 (defun compile-exit ()

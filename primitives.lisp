@@ -1,10 +1,15 @@
 (in-package #:goof)
 
+;; exit from a colon word (though this pretty much always gets
+;; converted into a straight 'rts' in it's callee, which has the same effect)
 (defcode exit  `((addq (:imm 2) ,*rsp*)))
 
+;; duplicate the top item on the stack
 (defcode dup   `((move.w (:indirect ,*sp*) (:pre-dec ,*sp*))))
 
+;; drop the top item off the stack
 (defcode drop  `((addq (:imm 2) ,*sp*)))
+
 
 (defcode 2drop `((addq (:imm 4) ,*sp*)))
 
