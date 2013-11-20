@@ -8,15 +8,25 @@
 (defcode dup   `((move.w (:indirect ,*sp*) (:pre-dec ,*sp*))))
 
 ;; drop the top item off the stack
-(defcode drop  `((addq (:imm 2) ,*sp*)))
-
+;; old tos in memory version
+;; (defcode drop  `((addq (:imm 2) ,*sp*)))
+;; tos in d7 version
+;; (defcode drop `((move.w (:post-inc a6) d7)))
 
 (defcode 2drop `((addq (:imm 4) ,*sp*)))
 
 (defcode 2dup  `((move.l ,*sp* (:pre-dec ,*sp*))))
 
 ;; ( a b -- a b a )
-(defcode over  `((move.w (:displacement 2 ,*sp*) (:pre-dec ,*sp*))))
+;; old tos in memory version
+;; (defcode over  `((move.w (:displacement 2 ,*sp*) (:pre-dec ,*sp*))))
+
+;;( (a6) d7 -- (a6) d7 (a6) )
+;; tos in d7 version
+(defcode over `((move.w (:indirect a6) d6)
+                (move.w d7 (:pre-dec a6))
+                (move.w d6 d7)))
+
 
 (defcode r>    `((move.w (:post-inc ,*rsp*) (:pre-dec ,*sp*))))
 
@@ -53,9 +63,16 @@
 
 (defcode dec   `((subq (:imm 1) (:indirect ,*sp*))))
 
-(defcode swap  `((move.l (:indirect ,*sp*) d7)
-                  (swap d7)
-                  (move.l d7 (:indirect ,*sp*))))
+;; old tos in memory version
+;; (defcode swap  `((move.l (:indirect ,*sp*) d7)
+;;                  (swap d7)
+;;                  (move.l d7 (:indirect ,*sp*))))
+
+;; tos in d7 version
+(defcode swap `((move.w (:indirect ,*sp*) d6)
+                (move.w d7 (:indirect ,*sp*))
+                (move.w d6 d7)))
+
 
 (defcode rot   `((movem.w (:indirect ,*sp*) d0-d2)
                   (exg d2 d1)
@@ -80,33 +97,50 @@
                    (:label ,name))))
 
 ;; should this be destructive?
-(defcode =0  `((tst.w (:indirect ,*sp*))))
-
+;; old tos in memory version
+;; (defcode =0  `((tst.w (:indirect ,*sp*))))
+;; tos in d7 version
+(defcode =0  `((tst.w d7)))
 
 
 ;; ;; general compare word, preferred to use this
 ;; ;; (or one of the compare-with-zero words),
 ;; ;; then use the contextually correct branching word
-(defcode = `((cmp (:indirect ,*sp*) (:indirect ,*sp*))))
-(defcode cmp `((cmp (:indirect ,*sp*) (:indirect ,*sp*))))
+
+;; old tos in memory version
+;; (defcode = `((cmp (:indirect ,*sp*) (:indirect ,*sp*))))
+;; (defcode cmp `((cmp (:displacement 2 ,*sp*) (:indirect ,*sp*))))
+
+;; tos in d7 version
+(defcode = `((cmp (:indirect ,*sp*) d7)))
+(defcode cmp `((cmp (:indirect ,*sp*) d7)))
+
 
 ;; first operand is the divisor
 ;; remainder is second on stack
-(defcode /mod `((move.w (:post-inc ,*sp*) d7)
+(defcode /mod `((moveq.l (:imm 0) d6)
+                (moveq.l (:imm 0) d7)
+                (move.w (:post-inc ,*sp*) d7)
                 (move.w (:post-inc ,*sp*) d6)
-                (divs d7 d6)
+                (divs.w d7 d6)
                 (swap d6)
-                (move.l d6 (:pre-dec ,*sp*))
-                (moveq.l (:imm 0) d6)
-                (moveq.l (:imm 0) d7)))
+                (move.l d6 (:pre-dec ,*sp*))))
 
-(defcode mod  `((move.w (:post-inc ,*sp*) d7)
-                (move.w (:post-inc ,*sp*) d6)
-                (divs d7 d6)
-                (swap d6)
-                (move.w d6 (:pre-dec ,*sp*))
-                (moveq.l (:imm 0) d6)
-                (moveq.l (:imm 0) d7)))
+;; old tos in memory
+;; (defcode mod  `((moveq.l (:imm 0) d6)
+;;                 (moveq.l (:imm 0) d7)
+;;                 (move.w (:post-inc ,*sp*) d7)
+;;                 (move.w (:post-inc ,*sp*) d6)
+;;                 (divs.w d7 d6)
+;;                 (swap d6)
+;;                 (move.w d6 (:pre-dec ,*sp*))))
+
+;; tos in d7 version
+(defcode mod `((moveq.l (:imm 0) d6)
+               (move.w (:post-inc ,*sp*) d6)
+               (divs.w d7 d6)
+               (swap d6)
+               (move.w d6 d7)))
 
 ;; (defcode =)
 ;; (defcode <)
@@ -117,7 +151,28 @@
 ;; (defcode >=0)
 ;; (defcode <=0)
 
-(defcolon gcd (?dup =0 =if swap over recurse then))
+
+
+
+
+;; swap ( a b -- b a )
+;; over ( b a -- b a b )
+
+;; ( a d7 -- b a d7 )
+;; tos in d7
+(defcode swap-over
+    `((move.w (:indirect a6) d6)
+      (move.w d7 (:indirect a6))
+      (move.w d6 (:pre-dec a6))))
+
+;; swap-over ( a b -- b a b )
+;; move.w (a6), d6
+;; move.w d7, (a6)
+;; move.w d6, (a6)
+
+
+(defcolon gcd (=0 /=if swap-over mod recurse then drop))
+
 
 (defun compile-if (test-instruction words)
   (let* ((then (position 'then words))
@@ -182,6 +237,24 @@
          (sym (or code-sym colon-sym)))
     (if (eq :anonymous *compiling-word*)
         (values words
-                (list (format nil "; recursive call to anonymous word not compiled")))
+                (list (format nil "    ; skipping recursive call to anonymous word ~%")))
         (values words
-                (list (format nil "    JMP ~a ; recursive call ~%" sym))))))
+                (list (format nil "    ; recursive call ~%    JMP ~a~%" sym))))))
+
+
+;; 123 33 gcd took 1736 cycles with tos in memory and inlining set to 3
+;; 123 33 gcd took 1400 cycles with tos in memory and inlining set to 8
+
+;; 123 33 gcd took 1464 cycles with tos in d7 and inlining set to 4
+;; 123 33 gcd took 1284 cycles with tos in d7 and inlining set to 8
+
+;; 123 33 gcd took 1204 cycles with tos in d7, inlining set to 8, and
+;; with swap-over word (rather than swap over)
+
+;; 123 33 gcd took 2722 cycles with tos in memory, and no inlining
+
+;; swap-over ( a b -- b a b )
+;; move.w (a6), d6
+;; move.w d7, (a6)
+;; move.w d6, (a6)
+

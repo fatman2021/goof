@@ -5,8 +5,12 @@
 
 (defparameter *start-address* #x000000 "Start address of code to be assembled.")
 (defparameter *stack-address* #xE00000 "Location in memory of the forth parameter stack.")
-(defvar *compiling-word*)
+(defvar *compiling-word* nil)
 
+;; maximum number of instructions to inline
+;; this is a pretty bad metric, but I don't know how long instructions
+;; are, so it's the best I can currently do
+(defparameter *max-inline-length* 8)
 
 ;; Compiler API
 
@@ -104,6 +108,13 @@
   (format nil "    ; initialization ~%~%    MOVE.L #$~x, a6" *stack-address*))
 
 
+(defun compile-halt ()
+  (let ((end-loop-name (gensym "loop")))
+        ;(format nil "~a: ~%    ; program ended, infinite loop ~%
+                                        ;JMP ~a~%~%" end-loop-name end-loop-name)
+    (format nil "    SIMHALT~%")
+    ))
+
 ;; Compiles an entire forth asm image
 (defun compile-image (file start-words)
 
@@ -127,9 +138,9 @@
 
       
       (format out "~%")
+
+      (format out "~a~%" (compile-halt))
       
-      (let ((end-loop-name (gensym "loop")))
-        (format out "~a: ~%    ; program ended, infinite loop ~%    JMP ~a~%~%" end-loop-name end-loop-name))
 
       ;; (maphash (lambda (k v) (declare (ignore v))
       ;;             (format out "~a" (compile-word k)))
@@ -198,9 +209,13 @@
           (list (format nil "    ; definition for ~a ~%" word))
           (list (translate-asm code)))) (error "Cannot find code word word ~a." word))))
 
+;; old tos in memory version
+
+;; (defun compile-push (number)
+;;   (format nil "    MOVE.W #~a, -(a6)~%" number))
 
 (defun compile-push (number)
-  (format nil "    MOVE.W #~a, -(a6)~%" number))
+  (format nil "    MOVE.W d7, -(a6)~%    MOVE.W #~a, d7~%" number))
 
 
 
@@ -245,10 +260,10 @@
   (compile-list-of-words word (gethash word *colon-words*)))
 
 (defun short-word-p (word)
-  (let ((code-word (gethash word *code-words*))
-        (colon-word (gethash word *colon-words*)))
-    (or (and code-word (>= 3 (length code-word)))
-        (and colon-word (>= 4 (length colon-word))))))
+  (let* ((code-word (gethash word *code-words*))
+         (colon-word (gethash word *colon-words*))
+         (word (or colon-word code-word)))
+    (and word (>= *max-inline-length* (length word)))))
 
 (defun compile-exit ()
   (format nil "    RTS~%"))
