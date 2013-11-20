@@ -4,9 +4,9 @@
 
 
 (defparameter *start-address* #x000000 "Start address of code to be assembled.")
-(defparameter *stack-address* #xE00000 "Location in memory of the forth parameter stack.")
+(defparameter *stack-address* #xFF0000 "Location in memory of the forth parameter stack.")
 (defvar *compiling-word* nil)
-(defparameter *ram-free-pt* #xE00256 "Location where forth will start allocating variables and create/does words.")
+(defparameter *ram-free-pt* #xFF0100 "Location where forth will start allocating variables and create/does words.")
 
 ;; maximum number of instructions to inline
 ;; this is a pretty bad metric, but I don't know how long instructions
@@ -35,7 +35,6 @@
 ;; the end
 (defmacro def-naked-code (name code)
   `(progn
-     (export ',name)
      (setf (gethash ',name *code-words*) ,code
            (gethash ',name *code-word-syms*) (gensym "code"))))
 
@@ -46,7 +45,6 @@
 ;; 
 (defmacro defcolon (name words)
   `(progn
-     (export ',name)
      (setf (gethash ',name *colon-words*) '(,@words exit)
            (gethash ',name *colon-word-syms*) (gensym "colon"))))
 
@@ -70,14 +68,11 @@
 ;; the constant value onto the words to be compiled
 (defmacro defconst (name value)
   `(progn
-     (export ',name)
      (defcompile ,name
          (cons ,value words))))
 
-;; not implemented yet
 (defmacro defvariable (name)
   `(progn
-     (export ',name)
      (let ((location (allocate-new-var-cell)))
        ;; define a compiler macro that expands to the allocated address
        (defcompile ,name
@@ -98,6 +93,13 @@
            (move.w (:post-inc a6) d7)   ;; move stack up
            end-code
            ,@words)))))
+
+(defmacro defobject (name cells)
+  ;; allocate new cells for each invocation,
+  ;; rather than just once (as per variables)
+  `(progn
+     (defcompile ,name
+         (let ((location (allocate-new-var-cell)))))))
 
 
 (defun allocate-new-var-cell ()

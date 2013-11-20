@@ -328,6 +328,5 @@
 
 
 
-
-(defvariable something)
+(defconst word-size 2)
 (defvariable counter)

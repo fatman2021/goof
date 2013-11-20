@@ -1,5 +1,11 @@
 Documentation for words.
-Branching and loop compiler words.
-CREATE, DOES> compiler words.
-Put top of param stack in D7 register. (this removes a lot of excess memory operations so it should improve performance a large amount)
-Superinstructions (merging commonly used words to lower call/return overhead)
+
+Functionality
+ Branching and loop compiler words.
+ CREATE, DOES> compiler words.
+ Runtime variable creation, runtime object creation
+
+Performance
+ Superinstructions (merging commonly used words to lower call/return overhead)
+
+
