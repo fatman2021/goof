@@ -78,8 +78,7 @@
 (defmacro defvariable (name)
   `(progn
      (export ',name)
-     (let ((location #x1000 ;(allocate-new-var-cell ',name)
-            ))
+     (let ((location (allocate-new-var-cell)))
        ;; define a compiler macro that expands to the allocated address
        (defcompile ,name
          (cons location words))
@@ -88,19 +87,22 @@
        (defcompile ,(symb name '@)
          `(code
           (move.w d7 (:pre-dec a6))
-           (move.w (:indirect ,location) d7)
+           (move.w (:absolute ,location) d7)
            end-code
            ,@words))
        ;; define a compiler macro that expands to a write to the
        ;; allocated address
        (defcompile ,(symb name '!)
          `(code
-           (move.w d7 (:indirect ,location)) ;; write to variable address
+           (move.w d7 (:absolute ,location)) ;; write to variable address
            (move.w (:post-inc a6) d7)   ;; move stack up
            end-code
            ,@words)))))
 
 
+(defun allocate-new-var-cell ()
+  (prog1 *ram-free-pt*
+    (incf *ram-free-pt* 2)))
 
 ;; tables for word and symbols
 
@@ -351,7 +353,7 @@
        #?"${operand}(${(first operands)})")
       ((:indexed-indirect :indirect-indexed :indi-indexed :indirect-idx :idx-indi :index-indi :indexed-indi  :index-indirect)
        #?"${operand}(${(first operands)},${(second operands)})")
-      ((:abs :abolute :addr :address :absolute-address)
+      ((:abs :absolute :addr :address :absolute-address)
        #?"${operand}")
       ((:pc-displacement :pc-disp)
        #?"${operand}(PC)")

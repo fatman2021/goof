@@ -330,3 +330,4 @@
 
 
 (defvariable something)
+(defvariable counter)
