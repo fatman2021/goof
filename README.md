@@ -48,4 +48,4 @@ Basic usage:
 ```
 
 It inlines both dup and + because they are relatively short words (and
-the CALL/RETURN overhead far outweighs the operations they perform)
+the call/return overhead far outweighs the operations they perform)
