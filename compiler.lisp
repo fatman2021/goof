@@ -112,8 +112,7 @@
   (let ((end-loop-name (gensym "loop")))
         ;(format nil "~a: ~%    ; program ended, infinite loop ~%
                                         ;JMP ~a~%~%" end-loop-name end-loop-name)
-    (format nil "    SIMHALT~%")
-    ))
+    (format nil "    SIMHALT~%")))
 
 ;; Compiles an entire forth asm image
 (defun compile-image (file start-words)
@@ -141,15 +140,10 @@
 
       (format out "~a~%" (compile-halt))
       
-
-      ;; (maphash (lambda (k v) (declare (ignore v))
-      ;;             (format out "~a" (compile-word k)))
-      ;;          *code-words*)
-      
+      ;; compile dependencies
       (maphash (lambda (word v) (declare (ignore v))
                   (format t "compiling word ~a~%" word)
                   (format out "~a" (compile-word word)))
-               ;*colon-words*
                words-to-compile)
 
       (format out "~%~%    ~a" (compile-end-address)))))
@@ -282,9 +276,7 @@
   (let ((colon-word (gethash word *colon-words*))
         (code-word (gethash word *code-words*)))
     (or (and colon-word (compile-inline-colon-word word colon-word))
-        (and code-word (compile-inline-code-word word code-word)))
-    
-    ))
+        (and code-word (compile-inline-code-word word code-word)))))
 
 (defun compile-inline-colon-word (word-name words)
   (apply
