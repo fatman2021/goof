@@ -28,6 +28,34 @@
                 (move.w d6 d7)))
 
 
+;; old tos in memory version
+;; (defcode swap  `((move.l (:indirect ,*sp*) d7)
+;;                  (swap d7)
+;;                  (move.l d7 (:indirect ,*sp*))))
+
+;; tos in d7 version
+(defcode swap `((move.w (:indirect ,*sp*) d6)
+                (move.w d7 (:indirect ,*sp*))
+                (move.w d6 d7)))
+
+
+(defcode rot   `((movem.w (:indirect ,*sp*) d0-d2)
+                 (exg d2 d1)
+                 (exg d1 d0)
+                 (movem.w d0-d2 (:indirect ,*sp*))))
+
+
+(defcode -rot  `((movem.w (:indirect ,*sp*) d0-d2)
+                 (exg d0 d1)
+                 (exg d1 d2)
+                 (movem.w d0-d2 (:indirect ,*sp*))))
+
+(defcode lit   `((move.w (:indirect ,*rsp*) (:pre-dec ,*sp*))
+                 (addq (:imm 2) (:indirect ,*rsp*))))
+
+
+;; return stack
+
 (defcode r>    `((move.w (:post-inc ,*rsp*) (:pre-dec ,*sp*))))
 
 (defcode r>>   `((move.l (:post-inc ,*rsp*) (:pre-dec ,*sp*))))
@@ -64,30 +92,33 @@
 
 (defcode dec   `((subq (:imm 1) (:indirect ,*sp*))))
 
-;; old tos in memory version
-;; (defcode swap  `((move.l (:indirect ,*sp*) d7)
-;;                  (swap d7)
-;;                  (move.l d7 (:indirect ,*sp*))))
+
+;; first operand is the divisor
+;; remainder is second on stack
+(defcode /mod `((moveq.l (:imm 0) d6)
+                (moveq.l (:imm 0) d7)
+                (move.w (:post-inc ,*sp*) d7)
+                (move.w (:post-inc ,*sp*) d6)
+                (divs.w d7 d6)
+                (swap d6)
+                (move.l d6 (:pre-dec ,*sp*))))
+
+;; old tos in memory
+;; (defcode mod  `((moveq.l (:imm 0) d6)
+;;                 (moveq.l (:imm 0) d7)
+;;                 (move.w (:post-inc ,*sp*) d7)
+;;                 (move.w (:post-inc ,*sp*) d6)
+;;                 (divs.w d7 d6)
+;;                 (swap d6)
+;;                 (move.w d6 (:pre-dec ,*sp*))))
 
 ;; tos in d7 version
-(defcode swap `((move.w (:indirect ,*sp*) d6)
-                (move.w d7 (:indirect ,*sp*))
-                (move.w d6 d7)))
+(defcode mod `((moveq.l (:imm 0) d6)
+               (move.w (:post-inc ,*sp*) d6)
+               (divs.w d7 d6)
+               (swap d6)
+               (move.w d6 d7)))
 
-
-(defcode rot   `((movem.w (:indirect ,*sp*) d0-d2)
-                  (exg d2 d1)
-                  (exg d1 d0)
-                  (movem.w d0-d2 (:indirect ,*sp*))))
-
-
-(defcode -rot  `((movem.w (:indirect ,*sp*) d0-d2)
-                  (exg d0 d1)
-                  (exg d1 d2)
-                  (movem.w d0-d2 (:indirect ,*sp*))))
-
-(defcode lit   `((move.w (:indirect ,*rsp*) (:pre-dec ,*sp*))
-                 (addq (:imm 2) (:indirect ,*rsp*))))
 
 (defcode execute `((jmp (:indirect ,*rsp*))))
 
@@ -121,31 +152,6 @@
 (defcode cmp `((cmp (:indirect ,*sp*) d7)))
 
 
-;; first operand is the divisor
-;; remainder is second on stack
-(defcode /mod `((moveq.l (:imm 0) d6)
-                (moveq.l (:imm 0) d7)
-                (move.w (:post-inc ,*sp*) d7)
-                (move.w (:post-inc ,*sp*) d6)
-                (divs.w d7 d6)
-                (swap d6)
-                (move.l d6 (:pre-dec ,*sp*))))
-
-;; old tos in memory
-;; (defcode mod  `((moveq.l (:imm 0) d6)
-;;                 (moveq.l (:imm 0) d7)
-;;                 (move.w (:post-inc ,*sp*) d7)
-;;                 (move.w (:post-inc ,*sp*) d6)
-;;                 (divs.w d7 d6)
-;;                 (swap d6)
-;;                 (move.w d6 (:pre-dec ,*sp*))))
-
-;; tos in d7 version
-(defcode mod `((moveq.l (:imm 0) d6)
-               (move.w (:post-inc ,*sp*) d6)
-               (divs.w d7 d6)
-               (swap d6)
-               (move.w d6 d7)))
 
 ;; (defcode =)
 ;; (defcode <)
@@ -174,6 +180,80 @@
 ;; move.w (a6), d6
 ;; move.w d7, (a6)
 ;; move.w d6, (a6)
+
+
+;;;  memory operations
+
+;; caution, these do not drop the addresses provided to them off the stack
+;; because dropping unecessary values is faster than duplicating them beforehand
+ 
+(defcode @  ;; ( addr -- addr val-at-address )
+    `((move.w d7 a5)
+      (move.w (:indirect a5) d7)))
+
+(defcode ! ;; ( addr val -- addr )
+    `((move.w (:indirect a6) a5)
+      (move.w d7 (:indirect a5))
+      (move.w a5 d7)))
+
+;; reads the value onto the stack and increments the address
+(defcode @+ ;; ( addr -- addr+1 val-at-address )
+    `((move.w d7 a5)
+      (move.w (:post-inc a5) d7)
+      (move.w a5 (:pre-dec a6))))
+
+;; stores a value into memory and increments the address
+(defcode !+ ;; ( addr val -- addr+1 )
+    `((move.w (:post-inc a6) a5)
+      (move.w d7 (:post-inc a5))
+      (move.w a5 d7)))
+
+;; copies a byte from the source address to the destination address
+(defcode b@ ( src-addr dest-addr -- src-addr dest-addr )
+  `((move.w (:indirect a6) a5)
+    (move.w d7 a4)
+    (move.b (:indirect a5) (:indirect a4))))
+
+;; copies a word from the source address to the destination address
+(defcode w@ ( src-addr dest-addr -- src-addr dest-addr )
+  `((move.w (:indirect a6) a5)
+    (move.w d7 a4)
+    (move.w (:indirect a5) (:indirect a4))))
+
+;; copies a longword from the source address to the destination address
+(defcode lw@ ( src-addr dest-addr -- src-addr dest-addr )
+  `((move.w (:indirect a6) a5)
+    (move.w d7 a4)
+    (move.l (:indirect a5) (:indirect a4))))
+
+
+;; copies a byte from the source address to the destination address
+;; incrementing both addresses
+(defcode b@+ ( src-addr dest-addr -- src-addr dest-addr )
+  `((move.w (:indirect a6) a5)
+    (move.w d7 a4)
+    (move.b (:post-inc a5) (:post-inc a4))
+    (move.w a5 (:indirect a6))
+    (move.w a4 d7)))
+
+;; copies a word from the source address to the destination address
+;; incrementing both addresses
+(defcode w@+ ( src-addr dest-addr -- src-addr dest-addr )
+  `((move.w (:indirect a6) a5)
+    (move.w d7 a4)
+    (move.w (:post-inc a5) (:post-inc a4))
+    (move.w a5 (:indirect a6))
+    (move.w a4 d7)))
+
+;; copies a longword from the source address to the destination address
+;; incrementing both address
+(defcode lw@+ ( src-addr dest-addr -- src-addr dest-addr )
+  `((move.w (:indirect a6) a5)
+    (move.w d7 a4)
+    (move.l (:post-inc a5) (:post-inc a4))
+    (move.w a5 (:indirect a6))
+    (move.w a4 d7)))
+
 
 
 (defcolon gcd (=0 /=if swap-over mod recurse then drop))
