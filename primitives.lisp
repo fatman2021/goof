@@ -327,19 +327,4 @@
                 (list (format nil "    ; recursive call ~%    JMP ~a~%" sym))))))
 
 
-;; 123 33 gcd took 1736 cycles with tos in memory and inlining set to 3
-;; 123 33 gcd took 1400 cycles with tos in memory and inlining set to 8
-
-;; 123 33 gcd took 1464 cycles with tos in d7 and inlining set to 4
-;; 123 33 gcd took 1284 cycles with tos in d7 and inlining set to 8
-
-;; 123 33 gcd took 1204 cycles with tos in d7, inlining set to 8, and
-;; with swap-over word (rather than swap over)
-
-;; 123 33 gcd took 2722 cycles with tos in memory, and no inlining
-
-;; swap-over ( a b -- b a b )
-;; move.w (a6), d6
-;; move.w d7, (a6)
-;; move.w d6, (a6)
 
