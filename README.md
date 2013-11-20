@@ -12,7 +12,7 @@ macros.
 
 
 
-Basic usage:
+Example of usage:
 
 ```lisp
 ;; adds 2 to the stack pointer, in effect taking the top item off
@@ -45,7 +45,26 @@ Basic usage:
     ADD.W (A6)+, (A6) 
     RTS
 "
-```
 
-It inlines both dup and + because they are relatively short words (and
-the call/return overhead far outweighs the operations they perform)
+(defvariable counter) ;; define a variable in RAM 
+
+;; defines the words counter, counter@, and counter!
+;; read as counter (push the variable location on the stack),
+;; counter-read (push the value of the variable on the stack),
+;; and counter-set (set the variable to the value on the top of the stack)
+
+
+(compile-word '(counter))
+
+"   MOVE.W d7, -(a6)     ;; push rest of stack downward
+    MOVE.W #4096, d7     ;; push address on stack
+"
+(compile-word '(counter@))
+"   MOVE.W D7, -(A6)     ;; push rest of stack downward
+    MOVE.W 4096, D7      ;; push value at address on stack
+"
+(compile-word '(counter!))
+"   MOVE.W D7, 4096      ;; store value on top of stack at address
+    MOVE.W (A6)+, D7     ;; pop rest of stack upward
+"
+```
