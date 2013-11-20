@@ -209,19 +209,19 @@
       (move.w a5 d7)))
 
 ;; copies a byte from the source address to the destination address
-(defcode b@ ( src-addr dest-addr -- src-addr dest-addr )
+(defcode b@ ; ( src-addr dest-addr -- src-addr dest-addr )
   `((move.w (:indirect a6) a5)
     (move.w d7 a4)
     (move.b (:indirect a5) (:indirect a4))))
 
 ;; copies a word from the source address to the destination address
-(defcode w@ ( src-addr dest-addr -- src-addr dest-addr )
+(defcode w@ ; ( src-addr dest-addr -- src-addr dest-addr )
   `((move.w (:indirect a6) a5)
     (move.w d7 a4)
     (move.w (:indirect a5) (:indirect a4))))
 
 ;; copies a longword from the source address to the destination address
-(defcode lw@ ( src-addr dest-addr -- src-addr dest-addr )
+(defcode lw@ ; ( src-addr dest-addr -- src-addr dest-addr )
   `((move.w (:indirect a6) a5)
     (move.w d7 a4)
     (move.l (:indirect a5) (:indirect a4))))
@@ -229,7 +229,7 @@
 
 ;; copies a byte from the source address to the destination address
 ;; incrementing both addresses
-(defcode b@+ ( src-addr dest-addr -- src-addr dest-addr )
+(defcode b@+ ; ( src-addr dest-addr -- src-addr dest-addr )
   `((move.w (:indirect a6) a5)
     (move.w d7 a4)
     (move.b (:post-inc a5) (:post-inc a4))
@@ -238,7 +238,7 @@
 
 ;; copies a word from the source address to the destination address
 ;; incrementing both addresses
-(defcode w@+ ( src-addr dest-addr -- src-addr dest-addr )
+(defcode w@+ ; ( src-addr dest-addr -- src-addr dest-addr )
   `((move.w (:indirect a6) a5)
     (move.w d7 a4)
     (move.w (:post-inc a5) (:post-inc a4))
@@ -247,7 +247,7 @@
 
 ;; copies a longword from the source address to the destination address
 ;; incrementing both address
-(defcode lw@+ ( src-addr dest-addr -- src-addr dest-addr )
+(defcode lw@+ ; ( src-addr dest-addr -- src-addr dest-addr )
   `((move.w (:indirect a6) a5)
     (move.w d7 a4)
     (move.l (:post-inc a5) (:post-inc a4))
@@ -328,3 +328,5 @@
 
 
 
+
+(defvariable something)

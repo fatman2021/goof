@@ -7,7 +7,7 @@
   :license "Do whatever you want."
   :depends-on (#:cl-interpol)
   :components ((:file "package")
-               (:file "goof")
+               (:file "utils")
                (:file "compiler")
                (:file "primitives")))
 

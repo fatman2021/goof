@@ -6,11 +6,12 @@
 (defparameter *start-address* #x000000 "Start address of code to be assembled.")
 (defparameter *stack-address* #xE00000 "Location in memory of the forth parameter stack.")
 (defvar *compiling-word* nil)
+(defparameter *ram-free-pt* #xE00256 "Location where forth will start allocating variables and create/does words.")
 
 ;; maximum number of instructions to inline
 ;; this is a pretty bad metric, but I don't know how long instructions
 ;; are, so it's the best I can currently do
-(defparameter *max-inline-length* 8)
+(defparameter *max-inline-length* 5)
 
 ;; Compiler API
 
@@ -74,13 +75,30 @@
          (cons ,value words))))
 
 ;; not implemented yet
-(defmacro defvariable (name value)
+(defmacro defvariable (name)
   `(progn
-     (error "This functionality is not yet implemented.")
      (export ',name)
-     '(add-new-var-address ',name ',value)
-     (defcompile ,name
-         )))
+     (let ((location #x1000 ;(allocate-new-var-cell ',name)
+            ))
+       ;; define a compiler macro that expands to the allocated address
+       (defcompile ,name
+         (cons location words))
+       ;; define a compiler macro that expands to a read from the
+       ;; allocated address
+       (defcompile ,(symb name '@)
+         `(code
+          (move.w d7 (:pre-dec a6))
+           (move.w (:indirect ,location) d7)
+           end-code
+           ,@words))
+       ;; define a compiler macro that expands to a write to the
+       ;; allocated address
+       (defcompile ,(symb name '!)
+         `(code
+           (move.w d7 (:indirect ,location)) ;; write to variable address
+           (move.w (:post-inc a6) d7)   ;; move stack up
+           end-code
+           ,@words)))))
 
 
 
