@@ -59,12 +59,10 @@ Example of usage:
 "
 (compile-word '(counter@))
 "    MOVE.W D7, -(A6)    ;; push rest of stack downward
-    MOVE.W (4096), D7    ;; push value at address on stack
+    MOVE.W 4096, D7    ;; push value at address on stack
 "
 (compile-word '(counter!))
-"    MOVE.W D7, (4096)   ;; store value on top of stack at address
+"    MOVE.W D7, 4096   ;; store value on top of stack at address
     MOVE.W (A6)+, D7     ;; pop rest of stack upward
 "
-GOOF> 
-
 ```
