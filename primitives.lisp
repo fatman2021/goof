@@ -11,7 +11,7 @@
 ;; old tos in memory version
 ;; (defcode drop  `((addq (:imm 2) ,*sp*)))
 ;; tos in d7 version
-;; (defcode drop `((move.w (:post-inc a6) d7)))
+(defcode drop `((move.w (:post-inc a6) d7)))
 
 (defcode 2drop `((addq (:imm 4) ,*sp*)))
 
@@ -37,6 +37,7 @@
 (defcode >>r   `((move.l (:post-inc ,*sp*)  (:pre-dec ,*rsp*))))
 
 
+;; arithmetic operations
 
 (defcode +     `((add.w (:post-inc ,*sp*)
                          (:indirect ,*sp*))))
@@ -95,6 +96,10 @@
                    (beq ,name)
                    (move.w (:indirect ,*sp*) (:pre-dec ,*sp*))
                    (:label ,name))))
+
+
+;;; comparison operators
+
 
 ;; should this be destructive?
 ;; old tos in memory version
