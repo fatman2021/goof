@@ -61,6 +61,7 @@
         ,@body)))
 
 
+
 ;; defining constants
 ;; (these only exist at compile-time, unlike interactive forths)
 
@@ -117,6 +118,7 @@
 (defvar *colon-word-syms* (make-hash-table :test 'equalp))
 (defvar *compiler-macros* (make-hash-table :test 'equalp))
 (defvar *constants* (make-hash-table :test 'equalp))
+(defvar *peephole-optimizations* (make-hash-table :test 'equalp))
 
 ;; return stack pointer and stack pointer
 (defparameter *rsp* 'a7)
@@ -240,10 +242,10 @@
 
 (defun compile-list-of-words (word-name words &key (header-string
                                                          (format nil "    ; definition of ~a~%" word-name))
-                                                (inline-words t))
+                                                (inlining t))
   (labels ((recur (rem-words)
              (unless (null rem-words)
-               
+
                (let ((word (car rem-words)))
                  (typecase word
                    (number (cons (compile-push word)
@@ -260,27 +262,32 @@
                         
                         (cons
                          (cond ((eq 'exit word) (compile-exit))
-                               ((or (and inline-words (short-word-p word))
+                               ((or (and (not inlining) (short-word-p word))
                                     (super-short-word-p word))
                                 (compile-inline-body word))
+                               ((eq 'exit (second rem-words))
+                                (prog1 (compile-word-jump word)
+                                  (setf rem-words (cdr rem-words))))
                                (t (compile-word-call word)))
                          (recur (cdr rem-words))))))))))
-    (if words 
+    (if words
         (apply #'concatenate 'string
                
                (when word-name (compile-label (gethash word-name *colon-word-syms*)))
                
                (append
-                (when word-name
+                (when (and word-name (not inlining))
                   (list header-string))
                 (recur words)))
-        (error "Cannot find colon word word ~a." word-name))))
+        (if word-name
+            (error "Cannot find colon word word ~a."  word-name)
+            (error "Please supply at least one word to compile.")))))
 
 (defmethod compile-colon-word ((words list))
-  (compile-list-of-words nil words :inline-words t))
+  (compile-list-of-words nil words :inlining nil))
 
 (defmethod compile-colon-word ((word symbol))
-  (compile-list-of-words word (gethash word *colon-words*) :inline-words t))
+  (compile-list-of-words word (gethash word *colon-words*) :inlining nil))
 
 ;; if it's short enough (1 instruction?) always inline, even nested
 (defun super-short-word-p (word)
@@ -299,12 +306,17 @@
 
 
 (defun compile-word-call (word)
+  (compile-word-branch word "JSR" "call to"))
+
+(defun compile-word-jump (word)
+  (compile-word-branch word "JMP" "tail-call to"))
+
+(defun compile-word-branch (word branch-type text)
   (let ((name (cond
                 ((gethash word *colon-words*) (gethash word *colon-word-syms*))
                 ((gethash word *code-words*) (gethash word *code-word-syms*))
                 (t (error "Cannot find word named ~a." word)))))
-    (format nil "    JSR ~a ; call to ~a~%" (format nil "~a" name) word)))
-
+    (format nil "    ~a ~a ; ~a ~a~%" branch-type (format nil "~a" name) text word)))
 
 ;; only code words for now
 (defun compile-inline-body (word)
@@ -321,7 +333,7 @@
                          :header-string
                          (format nil "    ; inlining ~a~%" word-name)
                          ;; no nested inlining
-                         :inline-words nil))
+                         :inlining t))
 
 (defun compile-inline-code-word (word-name asm)
   ;; strip rts from the end if it exists
