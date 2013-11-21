@@ -68,29 +68,29 @@
 ;; arithmetic operations
 
 (defcode +     `((add.w (:post-inc ,*sp*)
-                         (:indirect ,*sp*))))
+                         d7)))
 
 (defcode -      `((sub.w (:post-inc ,*sp*)
-                         (:indirect ,*sp*))))
+                         d7)))
 
-(defcode *     `((mult.q (:post-inc ,*sp*)
-                          (:indirect ,*sp*))))
+(defcode *     `((mult.w (:post-inc ,*sp*)
+                         d7)))
 
-(defcode 2*    `((lsl (:imm 1) (:indirect ,*sp*))))
+(defcode 2*    `((lsl (:imm 1) d7)))
 
-(defcode 4*    `((lsl (:imm 2) (:indirect ,*sp*))))
+(defcode 4*    `((lsl (:imm 2) d7)))
 
-(defcode 2/    `((rsl (:imm 1) (:indirect ,*sp*))))
+(defcode 2/    `((rsl (:imm 1) d7)))
 
-(defcode 4/    `((rsl (:imm 2) (:indirect ,*sp*))))
+(defcode 4/    `((rsl (:imm 2) d7)))
 
-(defcode inc   `((addq (:imm 1) (:indirect ,*sp*))))
+(defcode inc   `((addq (:imm 1) d7)))
 
-(defcode 2+    `((addq (:imm 2) (:indirect ,*sp*))))
+(defcode 2+    `((addq (:imm 2) d7)))
 
-(defcode 4+    `((addq (:imm 4) (:indirect ,*sp*))))
+(defcode 4+    `((addq (:imm 4) d7)))
 
-(defcode dec   `((subq (:imm 1) (:indirect ,*sp*))))
+(defcode dec   `((subq (:imm 1) d7)))
 
 
 ;; first operand is the divisor
@@ -269,9 +269,6 @@
          (else-words (if else
                          (subseq words else)))
          (rest-words (subseq words (1+ then))))
-    ;(format t "if-words: ~a~%" if-words)
-    ;(format t "else-words: ~a~%" else-words)
-    ;(format t "then-words: ~a~%" rest-words)
     (let ((label (gensym "label")))
       (values rest-words
               (list
@@ -329,4 +326,13 @@
 
 
 (defconst word-size 2)
-(defvariable counter)
+(defvariable free-pt)
+
+
+(defcolon cells  ;; ( n -- n*cell-size )
+    ( word-size * ))
+
+
+(defcolon alloc  ;; ( n -- addr )
+    
+    ( cells free-pt@ + free-pt!))

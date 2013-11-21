@@ -11,7 +11,7 @@
 ;; maximum number of instructions to inline
 ;; this is a pretty bad metric, but I don't know how long instructions
 ;; are, so it's the best I can currently do
-(defparameter *max-inline-length* 5)
+(defparameter *max-inline-length* 3)
 
 ;; Compiler API
 
@@ -99,7 +99,10 @@
   ;; rather than just once (as per variables)
   `(progn
      (defcompile ,name
-         (let ((location (allocate-new-var-cell)))))))
+       (cons
+        (compile-allocate-new-var-cell)
+        )
+       (let ((location (allocate-new-var-cell)))))))
 
 
 (defun allocate-new-var-cell ()
@@ -235,7 +238,9 @@
 
 
 
-(defun compile-list-of-words (word-name words)
+(defun compile-list-of-words (word-name words &key (header-string
+                                                         (format nil "    ; definition of ~a~%" word-name))
+                                                (inline-words t))
   (labels ((recur (rem-words)
              (unless (null rem-words)
                
@@ -255,7 +260,9 @@
                         
                         (cons
                          (cond ((eq 'exit word) (compile-exit))
-                               ((short-word-p word) (compile-inline-body word))
+                               ((or (and inline-words (short-word-p word))
+                                    (super-short-word-p word))
+                                (compile-inline-body word))
                                (t (compile-word-call word)))
                          (recur (cdr rem-words))))))))))
     (if words 
@@ -265,15 +272,21 @@
                
                (append
                 (when word-name
-                  (list (format nil "    ; definition of ~a~%" word-name)))
+                  (list header-string))
                 (recur words)))
         (error "Cannot find colon word word ~a." word-name))))
 
 (defmethod compile-colon-word ((words list))
-  (compile-list-of-words nil words))
+  (compile-list-of-words nil words :inline-words t))
 
 (defmethod compile-colon-word ((word symbol))
-  (compile-list-of-words word (gethash word *colon-words*)))
+  (compile-list-of-words word (gethash word *colon-words*) :inline-words t))
+
+;; if it's short enough (1 instruction?) always inline, even nested
+(defun super-short-word-p (word)
+  (let ((*max-inline-length* 2))
+    (declare (special *max-inline-length*))
+    (short-word-p word)))
 
 (defun short-word-p (word)
   (let* ((code-word (gethash word *code-words*))
@@ -301,14 +314,14 @@
         (and code-word (compile-inline-code-word word code-word)))))
 
 (defun compile-inline-colon-word (word-name words)
-  (apply
-   #'concatenate
-   'string
-   (format nil "    ; inlining ~a ~%" word-name)
-   (if (eq (car (last words)) 'exit)
-       ;; only call compile-word-call so no double inlining
-       (mapcar #'compile-word-call (butlast words))
-       (mapcar #'compile-word-call words))))
+  (compile-list-of-words word-name
+                         (if (eq (car (last words)) 'exit)
+                             (butlast words)
+                             words)
+                         :header-string
+                         (format nil "    ; inlining ~a~%" word-name)
+                         ;; no nested inlining
+                         :inline-words nil))
 
 (defun compile-inline-code-word (word-name asm)
   ;; strip rts from the end if it exists

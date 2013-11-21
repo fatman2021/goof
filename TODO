@@ -7,5 +7,6 @@ Functionality
 
 Performance
  Superinstructions (merging commonly used words to lower call/return overhead)
-
+ General peephole optimization
+ Tail-call peephole optimization ( call followed by return can be converted into a jump ) 
 
