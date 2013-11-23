@@ -55,7 +55,7 @@ Example of usage:
 (compile-word '(counter))
 
 "   MOVE.W d7, -(a6)     ;; push rest of stack downward
-    MOVE.W #4096, d7     ;; push address on stack
+    MOVE.W #4096, d7     ;; push (made-up) address on stack
 "
 (compile-word '(counter@))
 "   MOVE.W D7, -(A6)     ;; push rest of stack downward
