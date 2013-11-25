@@ -22,7 +22,7 @@ Example of usage:
 (compile-word 'drop)
 "code1032: 
     ; definition for DROP 
-    ADDQ #2, A6 
+    MOVE.W (a6)+, D7
     RTS 
 "
 
@@ -30,17 +30,17 @@ Example of usage:
 (compile-word '+)
 "code1039: 
     ; definition for + 
-    ADD.W (A6)+, (A6) 
+    ADD.W (A6)+, D7 
     RTS 
 "
 
 ;; test compiling an anonymous colon word with the above defined code words
 (compile-word '(drop swap + exit))
 "    ; inlining DROP 
-    ADDQ #2, A6 
+    MOVE.W (a6)+, D7
     JSR code1050 ; call to SWAP (defined elsewhere)
     ; inlining + 
-    ADD.W (A6)+, (A6) 
+    ADD.W (A6)+, D7 
     RTS
 "
 
@@ -55,7 +55,7 @@ Example of usage:
 (compile-word '(counter))
 
 "   MOVE.W d7, -(a6)     ;; push rest of stack downward
-    MOVE.W #4096, d7     ;; push address on stack
+    MOVE.W #4096, d7     ;; push (made-up) address on stack
 "
 (compile-word '(counter@))
 "   MOVE.W D7, -(A6)     ;; push rest of stack downward
