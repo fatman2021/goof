@@ -73,7 +73,7 @@
 (defcode -      `((sub.w (:post-inc ,*sp*)
                          d7)))
 
-(defcode *     `((mult.w (:post-inc ,*sp*)
+(defcode *     `((muls.w (:post-inc ,*sp*)
                          d7)))
 
 (defcode 2*    `((lsl (:imm 1) d7)))
@@ -326,7 +326,10 @@
 
 
 (defconst word-size 2)
+(defconst stack-base *stack-address*)
 (defvariable free-pt)
+
+
 
 
 (defcolon cells  ;; ( n -- n*cell-size )
@@ -336,3 +339,43 @@
 (defcolon alloc  ;; ( n -- addr )
     
     ( cells free-pt@ + free-pt!))
+
+(let ((rstack-base-var-address (allocate-new-var-cell))
+      (free-pt-address (allocate-new-var-cell)))
+  (defcode rstack-base ;; ( -- rstack-base )
+      `((move.w d7 (:pre-dec a6))
+        (move.w (:absolute ,rstack-base-var-address) d7)))
+  (defcode set-rstack-base ;; ( n -- )
+      `((move.w d7 (:absolute ,rstack-base-var-address))
+        (move.w (:post-inc a6) d7)))
+  (defcode free-pt ;; ( -- free-pt-address )
+      `((move.w d7 (:pre-dec a6))
+        (move.l (:absolute ,free-pt-address) d7)))
+  (defcode set-free-pt ;; ( addr -- )
+      `((move.w d7 (:absolute ,free-pt-address))
+        (move.w (:post-inc a6) d7))))
+
+
+(defcolon alloc-new-var-cell
+    ( 1 alloc ))
+
+
+;; this shit is complicated
+;; we need to have some sort of mapping between words and created
+;; words at runtime
+(defcompile create
+  (let* ((does (position 'does> words))
+         (create-words (if does
+                           (subseq words 0 does)
+                           words))
+         (does-words (if does
+                         (subseq words (+ 1 does)))))
+    (format t "create words: ~a~% does words: ~a~%" create-words does-words)
+    (values
+     nil
+     (list (compile-word create-words)
+           (compile-word does-words)))
+    ;; allocate one variable cell for each word on the stack
+    ;; for does, move variables in each cell onto the stack
+    ;; before executing words
+    ))

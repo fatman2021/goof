@@ -44,9 +44,8 @@
 
 ;; 
 (defmacro defcolon (name words)
-  `(progn
-     (setf (gethash ',name *colon-words*) '(,@words exit)
-           (gethash ',name *colon-word-syms*) (gensym "colon"))))
+  `(setf (gethash ',name *colon-words*) '(,@words exit)
+         (gethash ',name *colon-word-syms*) (gensym "colon")))
 
 ;; used to define compiler macros
 ;; a compiler macro (in this context) is a lambda that takes the rest of
@@ -83,7 +82,7 @@
        (defcompile ,(symb name '@)
          `(code
           (move.w d7 (:pre-dec a6))
-           (move.w (:absolute ,location) d7)
+          (move.l (:absolute ,location) d7)
            end-code
            ,@words))
        ;; define a compiler macro that expands to a write to the
@@ -123,58 +122,6 @@
 ;; return stack pointer and stack pointer
 (defparameter *rsp* 'a7)
 (defparameter *sp* 'a6)
-
-;; initialization and such
-(defun compile-start-address ()
-  (format nil "ORG ~a~%" *start-address*))
-
-(defun compile-end-address ()
-  (format nil "END ~a~%" *start-address*))
-
-(defun compile-initialization ()
-  (format nil "    ; initialization ~%~%    MOVE.L #$~x, a6" *stack-address*))
-
-
-(defun compile-halt ()
-  (let ((end-loop-name (gensym "loop")))
-        ;(format nil "~a: ~%    ; program ended, infinite loop ~%
-                                        ;JMP ~a~%~%" end-loop-name end-loop-name)
-    (format nil "    SIMHALT~%")))
-
-;; Compiles an entire forth asm image
-(defun compile-image (file start-words)
-
-  (let ((words-to-compile (make-hash-table :test 'eq)))
-    (with-open-file (out file :if-exists :supersede :if-does-not-exist :create :direction :output)
-      (format out "    ~a~%" (compile-start-address))
-
-      
-      (format out "~a~%" (compile-initialization))
-
-      (mapcar
-       (lambda (start-word)
-         (typecase start-word
-           (number (format out "~a~%" (compile-push start-word)))
-           (symbol
-            (shake-threads start-word words-to-compile)
-            (format out "    ; initial call to ~a    ~%    JSR ~a ~%"
-                    start-word
-                    (format nil "~a" (get-word-label start-word))))))
-       start-words)
-
-      
-      (format out "~%")
-
-      (format out "~a~%" (compile-halt))
-      
-      ;; compile dependencies
-      (maphash (lambda (word v) (declare (ignore v))
-                  (format t "compiling word ~a~%" word)
-                  (format out "~a" (compile-word word)))
-               words-to-compile)
-
-      (format out "~%~%    ~a" (compile-end-address)))))
-
 
 (defun get-word-code (name)
   (if (gethash name *code-words*)
@@ -273,7 +220,7 @@
     (if words
         (apply #'concatenate 'string
                
-               (when word-name (compile-label (gethash word-name *colon-word-syms*)))
+               (when (and word-name (not inlining)) (compile-label (gethash word-name *colon-word-syms*)))
                
                (append
                 (when (and word-name (not inlining))
@@ -381,7 +328,7 @@
       ((:indexed-indirect :indirect-indexed :indi-indexed :indirect-idx :idx-indi :index-indi :indexed-indi  :index-indirect)
        #?"${operand}(${(first operands)},${(second operands)})")
       ((:abs :absolute :addr :address :absolute-address)
-       #?"${operand}")
+       (format nil "$~x" operand))
       ((:pc-displacement :pc-disp)
        #?"${operand}(PC)")
       ((:pc-index :pc-indexed)
