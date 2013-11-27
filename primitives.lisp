@@ -330,6 +330,8 @@
 (defvariable free-pt)
 
 
+; translates address
+
 
 
 (defcolon cells  ;; ( n -- n*cell-size )
@@ -337,8 +339,9 @@
 
 
 (defcolon alloc  ;; ( n -- addr )
-    
-    ( cells free-pt@ + free-pt!))
+    ( cells free-pt@ dup rot + free-pt!))
+
+
 
 (let ((rstack-base-var-address (allocate-new-var-cell))
       (free-pt-address (allocate-new-var-cell)))

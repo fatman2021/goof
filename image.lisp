@@ -13,10 +13,11 @@
    'string
    (format nil "    ; initialization ~%~%    MOVE.L #$~x, a6~%" *stack-address*)
    ;; initialize variable values
-   (format nil "    ; setting free pointer ~%~a~%" (compile-word
-                                                    `(code
-                                                     
-                                                      end-code)))))
+   (format nil "    ; setting free pointer ~%~a~%"
+           (compile-word `(code (move.w (:immediate ,(- *ram-free-pt* #xFF0000)) d7)
+                                end-code
+                                free-pt!))
+           )))
 
 (defun compile-end-address ()
   (format nil "END ~a~%" *start-address*))

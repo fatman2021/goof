@@ -81,8 +81,9 @@
        ;; allocated address
        (defcompile ,(symb name '@)
          `(code
-          (move.w d7 (:pre-dec a6))
-          (move.l (:absolute ,location) d7)
+           (move.w d7 (:pre-dec a6))
+           ;; variable addresses start at #xFF0000
+           (move.w (:absolute ,location) d7)
            end-code
            ,@words))
        ;; define a compiler macro that expands to a write to the
@@ -93,17 +94,6 @@
            (move.w (:post-inc a6) d7)   ;; move stack up
            end-code
            ,@words)))))
-
-(defmacro defobject (name cells)
-  ;; allocate new cells for each invocation,
-  ;; rather than just once (as per variables)
-  `(progn
-     (defcompile ,name
-       (cons
-        (compile-allocate-new-var-cell)
-        )
-       (let ((location (allocate-new-var-cell)))))))
-
 
 (defun allocate-new-var-cell ()
   (prog1 *ram-free-pt*

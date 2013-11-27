@@ -9,5 +9,6 @@
   :components ((:file "package")
                (:file "utils")
                (:file "compiler")
-               (:file "primitives")))
+               (:file "primitives")
+               (:file "image")))
 
